@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini-Vidéos Géométriques Interactives</title>
+    <title>Mini-Vidéos Géométriques Interactives avec Enregistrement</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -35,6 +37,9 @@
         }
         .anim-button {
             @apply text-white font-semibold py-2 px-1 rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-75 text-xs sm:text-sm; 
+        }
+        .record-button {
+            @apply text-white font-semibold py-2 px-3 rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 text-xs sm:text-sm;
         }
         .control-group {
             @apply mb-3 p-3 bg-gray-800 rounded-md;
@@ -66,6 +71,13 @@
         <div class="relative w-full bg-black rounded-xl shadow-2xl overflow-hidden aspect-9-16 border-2 border-purple-500">
             <canvas id="animationCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
         </div>
+        
+        <div class="mt-3 flex justify-center space-x-2">
+            <button id="startRecordButton" class="record-button bg-green-500 hover:bg-green-600 focus:ring-green-400">Démarrer Enregistrement</button>
+            <button id="stopRecordButton" class="record-button bg-red-500 hover:bg-red-600 focus:ring-red-400 hidden">Arrêter Enregistrement</button>
+        </div>
+        <p id="recordStatus" class="text-xs text-gray-400 text-center mt-1"></p>
+
 
         <div class="mt-4 grid grid-cols-3 gap-1 sm:gap-2">
             <button id="anim1Button" class="anim-button bg-purple-600 hover:bg-purple-700 focus:ring-purple-400">Billes Fusion</button>
@@ -154,41 +166,36 @@
         let currentControlsId = 'billesControls';
 
         let simParams = {
-            initialNumBalls: 10,
-            vitesseBilles: 1.0,
-            numLines: 7,
-            vitesseLignes: 1.0,
-            numCircles: 10,
-            vitesseCercles: 1.0,
-            numParticles: 100,
-            vitesseFlux: 1.0,
-            maxShapes: 8,
-            vitesseCroissance: 1.0
+            initialNumBalls: 10, vitesseBilles: 1.0,
+            numLines: 7, vitesseLignes: 1.0,
+            numCircles: 10, vitesseCercles: 1.0,
+            numParticles: 100, vitesseFlux: 1.0,
+            maxShapes: 8, vitesseCroissance: 1.0
         };
 
-        // Helper function to convert hex color to rgba
+        // CCapture.js instance and state
+        let capturer = null;
+        let isRecording = false;
+        const startRecordButton = document.getElementById('startRecordButton');
+        const stopRecordButton = document.getElementById('stopRecordButton');
+        const recordStatus = document.getElementById('recordStatus');
+
+
         function hexToRgba(hex, alpha) {
             let r = 0, g = 0, b = 0;
-            if (hex.length == 4) { // #RGB
-                r = parseInt(hex[1] + hex[1], 16);
-                g = parseInt(hex[2] + hex[2], 16);
-                b = parseInt(hex[3] + hex[3], 16);
-            } else if (hex.length == 7) { // #RRGGBB
-                r = parseInt(hex[1] + hex[2], 16);
-                g = parseInt(hex[3] + hex[4], 16);
-                b = parseInt(hex[5] + hex[6], 16);
+            if (hex.length == 4) { 
+                r = parseInt(hex[1] + hex[1], 16); g = parseInt(hex[2] + hex[2], 16); b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length == 7) {
+                r = parseInt(hex[1] + hex[2], 16); g = parseInt(hex[3] + hex[4], 16); b = parseInt(hex[5] + hex[6], 16);
             }
             return `rgba(${r},${g},${b},${alpha})`;
         }
-
 
         const messageBox = document.getElementById('customMessageBox');
         function showMessage(message, duration = 1500) {
             messageBox.textContent = message;
             messageBox.classList.add('show');
-            setTimeout(() => {
-                messageBox.classList.remove('show');
-            }, duration);
+            setTimeout(() => { messageBox.classList.remove('show'); }, duration);
         }
 
         function resizeCanvas() {
@@ -206,30 +213,42 @@
             switchControls('billesControls');
             startAnimation(bouncingBallsWithMergeAnimation, true); 
             showMessage("Bienvenue ! Contrôlez les animations.", 2000);
+            setupRecordingButtons();
         });
         window.addEventListener('resize', resizeCanvas);
 
         function switchControls(controlsId) {
             document.querySelectorAll('.control-group').forEach(group => group.classList.add('hidden'));
             const activeGroup = document.getElementById(controlsId);
-            if (activeGroup) {
-                activeGroup.classList.remove('hidden');
-            }
+            if (activeGroup) activeGroup.classList.remove('hidden');
             currentControlsId = controlsId;
         }
         
-        function startAnimation(animationFunction, doInit = true) {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
+        function mainLoop(timestamp) { // timestamp est fourni par requestAnimationFrame
+            if (currentAnimation) {
+                currentAnimation(timestamp); // Passer le timestamp à la fonction d'animation
             }
+            if (isRecording && capturer && canvas.width > 0 && canvas.height > 0) {
+                try {
+                    capturer.capture(canvas);
+                } catch (e) {
+                    console.error("Erreur de capture:", e);
+                    // Peut-être arrêter l'enregistrement ici ou notifier l'utilisateur
+                }
+            }
+             // animationFrameId est déjà géré dans chaque fonction d'animation individuelle
+        }
+
+
+        function startAnimation(animationFunction, doInit = true) {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             
             if (currentAnimation !== animationFunction) {
                  if (currentAnimation === bouncingBallsWithMergeAnimation) {
                     superExplosionEffect.active = false; 
-                    collisionEffects = []; // Effacer les effets de collision en cours
+                    collisionEffects = []; 
                  }
             }
-
             currentAnimation = animationFunction;
             
             if (doInit) {
@@ -244,39 +263,86 @@
                 resizeCanvas(); 
                 if (doInit && currentAnimation) { 
                      if (currentAnimation === bouncingBallsWithMergeAnimation) initBouncingBallsWithMerge();
-                     else if (currentAnimation === wavyLinesAnimation) initWavyLines();
-                     else if (currentAnimation === mergingCirclesAnimation) initMergingCircles();
-                     else if (currentAnimation === particleFlowAnimation) initParticleFlow();
-                     else if (currentAnimation === growingShapesAnimation) initGrowingShapes();
+                     // ... autres inits
                 }
             }
             if(canvas.width > 0 && canvas.height > 0) { 
-                animationFunction(); 
+                // La boucle principale (mainLoop) sera appelée par requestAnimationFrame DANS chaque fonction d'animation
+                // pour s'assurer que la capture se fait au bon moment.
+                // Chaque fonction d'animation appellera requestAnimationFrame(son_propre_nom_de_boucle)
+                // et à l'intérieur de cette boucle, elle appellera `mainLoop` ou directement `capturer.capture()`
+                // Pour simplifier, nous allons modifier les fonctions d'animation pour qu'elles appellent `capturer.capture()`
+                animationFunction(); // Démarre la boucle d'animation spécifique
             }
         }
 
-        // --- Animation 1: Billes Rebondissantes avec Fusion et Explosion ---
+
+        // --- Enregistrement Vidéo ---
+        function setupRecordingButtons() {
+            startRecordButton.addEventListener('click', () => {
+                if (!isRecording) {
+                    // S'assurer que le canvas a des dimensions valides
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        showMessage("Le canvas n'est pas prêt. Redimensionnez ou attendez.", 2500);
+                        return;
+                    }
+
+                    capturer = new CCapture({
+                        format: 'webm', // ou 'gif', 'png', 'jpg', 'ffmpegserver'
+                        framerate: 30, // FPS de la vidéo
+                        verbose: false, // Mettre à true pour les logs de debug
+                        // quality: 90, // Pour webm, de 0 à 100
+                        // workersPath: 'path/to/workers/', // Si vous utilisez des workers pour gif.js ou autre
+                        name: `animation-${currentAnimation ? currentAnimation.name.replace('Animation','').toLowerCase() : 'video'}-${Date.now()}`
+                    });
+                    capturer.start();
+                    isRecording = true;
+                    startRecordButton.classList.add('hidden');
+                    stopRecordButton.classList.remove('hidden');
+                    recordStatus.textContent = "Enregistrement en cours...";
+                    showMessage("Enregistrement démarré!", 1500);
+                }
+            });
+
+            stopRecordButton.addEventListener('click', () => {
+                if (isRecording && capturer) {
+                    capturer.stop();
+                    recordStatus.textContent = "Sauvegarde de la vidéo...";
+                    // Sauvegarder le fichier
+                    capturer.save(blob => {
+                        // CCapture.js peut retourner un blob ou directement télécharger.
+                        // La méthode save de CCapture.js déclenche généralement le téléchargement.
+                        recordStatus.textContent = "Vidéo sauvegardée ! Prêt pour un nouvel enregistrement.";
+                        showMessage("Vidéo sauvegardée!", 2000);
+                         // CCapture.js ne réinitialise pas son état interne après save,
+                         // donc il vaut mieux le nullifier pour en créer un nouveau la prochaine fois.
+                        capturer = null;
+                    });
+                    isRecording = false;
+                    startRecordButton.classList.remove('hidden');
+                    stopRecordButton.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- Animation 1: Billes Fusion ---
         let balls = [];
         const ballColors = ['#8B5CF6', '#EC4899', '#10B981', '#3B82F6', '#F59E0B', '#6D28D9', '#BE185D', '#F9A8D4', '#A7F3D0'];
         const MIN_BALL_RADIUS_BASE = 5; 
         let MAX_BALL_RADIUS; 
         const EXPLOSION_FRAGMENTS = 3; 
-        const SUPER_EXPLOSION_FRAGMENTS = 70; // Augmenté
+        const SUPER_EXPLOSION_FRAGMENTS = 70; 
 
-        let superExplosionEffect = {
-            active: false, x: 0, y: 0, duration: 70, // Durée augmentée
-            currentTime: 0, particles: []
-        };
-        let collisionEffects = []; // Pour les petits éclats lors des fusions
+        let superExplosionEffect = { active: false, x: 0, y: 0, duration: 70, currentTime: 0, particles: [] };
+        let collisionEffects = []; 
         const COLLISION_EFFECT_DURATION = 20;
         const COLLISION_EFFECT_PARTICLES = 10;
 
-
-        function addCollisionEffect(x, y, colors) {
+        function addCollisionEffect(x, y, colors) { /* ... (inchangé) ... */ 
             let effectParticles = [];
             for (let i = 0; i < COLLISION_EFFECT_PARTICLES; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 1.5 + 0.5; // Vitesse modérée
+                const speed = Math.random() * 1.5 + 0.5; 
                 effectParticles.push({
                     x: x, y: y,
                     vx: Math.cos(angle) * speed,
@@ -288,8 +354,7 @@
             }
             collisionEffects.push({ particles: effectParticles, currentTime: 0, duration: COLLISION_EFFECT_DURATION });
         }
-
-        function drawCollisionEffects() {
+        function drawCollisionEffects() { /* ... (inchangé) ... */ 
             for (let i = collisionEffects.length - 1; i >= 0; i--) {
                 const effect = collisionEffects[i];
                 effect.currentTime++;
@@ -303,7 +368,7 @@
                     if (p.alpha > 0) {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                        ctx.fillStyle = hexToRgba(p.color, p.alpha * 0.8); // Utilisation de hexToRgba
+                        ctx.fillStyle = hexToRgba(p.color, p.alpha * 0.8); 
                         ctx.fill();
                     }
                 });
@@ -313,12 +378,9 @@
                 }
             }
         }
-
-
         function calculateRadiusFromArea(area) { return Math.sqrt(area / Math.PI); }
         function calculateAreaFromRadius(radius) { return Math.PI * radius * radius; }
-        
-        function createBall(x, y, radius, color, dx, dy) {
+        function createBall(x, y, radius, color, dx, dy) { /* ... (inchangé) ... */ 
             const baseSpeedFactor = canvas.width > 0 ? canvas.width / 200 : 1; 
             return {
                 id: Date.now() * Math.random(), 
@@ -328,12 +390,11 @@
                 dy: dy !== undefined ? dy : (Math.random() - 0.5) * baseSpeedFactor * simParams.vitesseBilles 
             };
         }
-
-        function initBouncingBallsWithMerge() {
+        function initBouncingBallsWithMerge() { /* ... (inchangé) ... */ 
             balls = [];
             superExplosionEffect.active = false; 
             superExplosionEffect.particles = [];
-            collisionEffects = []; // Réinitialiser les effets de collision
+            collisionEffects = []; 
             if (canvas.width === 0 || canvas.height === 0) return; 
             MAX_BALL_RADIUS = Math.min(canvas.width, canvas.height) / 4; 
             const minRadius = MIN_BALL_RADIUS_BASE * (canvas.width / 400);
@@ -347,8 +408,7 @@
                 ));
             }
         }
-
-        function triggerSuperExplosion(ball) {
+        function triggerSuperExplosion(ball) { /* ... (inchangé) ... */ 
             superExplosionEffect.active = true;
             superExplosionEffect.x = ball.x;
             superExplosionEffect.y = ball.y;
@@ -358,21 +418,20 @@
 
             for (let i = 0; i < SUPER_EXPLOSION_FRAGMENTS; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const speed = superExplosionSpeedBase * (0.6 + Math.random()); // Vitesse plus variée
+                const speed = superExplosionSpeedBase * (0.6 + Math.random()); 
                 superExplosionEffect.particles.push({
                     x: ball.x, y: ball.y,
                     vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                    radius: Math.random() * 3.5 + 1, // Particules légèrement plus grosses
+                    radius: Math.random() * 3.5 + 1, 
                     color: ballColors[Math.floor(Math.random() * ballColors.length)],
                     alpha: 1,
-                    drag: 0.985 + Math.random() * 0.01 // Légère variation de la traînée
+                    drag: 0.985 + Math.random() * 0.01 
                 });
             }
             balls = []; 
             showMessage("SUPER EXPLOSION !!!", 2000);
         }
-
-        function drawSuperExplosion() {
+        function drawSuperExplosion() { /* ... (inchangé) ... */ 
             if (!superExplosionEffect.active) return;
 
             superExplosionEffect.currentTime++;
@@ -381,25 +440,25 @@
             superExplosionEffect.particles.forEach(p => {
                 p.x += p.vx;
                 p.y += p.vy;
-                p.vx *= p.drag; // Appliquer la traînée
+                p.vx *= p.drag; 
                 p.vy *= p.drag;
-                p.alpha = 1 - progress * progress; // Fondu plus lent au début
+                p.alpha = 1 - progress * progress; 
 
                 if (p.alpha > 0) {
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = hexToRgba(p.color, p.alpha); // Utilisation de hexToRgba
+                    ctx.fillStyle = hexToRgba(p.color, p.alpha); 
                     ctx.fill();
                 }
             });
             
-            const shockwaveRadius = progress * Math.max(canvas.width, canvas.height) * 0.75; // Onde de choc un peu plus grande
-            const shockwaveAlpha = 0.6 * (1 - progress); // Un peu plus visible
+            const shockwaveRadius = progress * Math.max(canvas.width, canvas.height) * 0.75; 
+            const shockwaveAlpha = 0.6 * (1 - progress); 
             if (shockwaveAlpha > 0) {
                 ctx.beginPath();
                 ctx.arc(superExplosionEffect.x, superExplosionEffect.y, shockwaveRadius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 255, 220, ${shockwaveAlpha})`; // Couleur jaune pâle
-                ctx.lineWidth = (6 * (1-progress) + 1); // Plus épaisse au début
+                ctx.strokeStyle = `rgba(255, 255, 220, ${shockwaveAlpha})`; 
+                ctx.lineWidth = (6 * (1-progress) + 1); 
                 ctx.stroke();
             }
 
@@ -408,17 +467,15 @@
                 initBouncingBallsWithMerge(); 
             }
         }
-
-        function drawBall(ball) { 
+        function drawBall(ball) { /* ... (inchangé) ... */ 
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = ball.color; // La couleur est déjà en hex
+            ctx.fillStyle = ball.color; 
             ctx.fill();
             ctx.closePath();
         }
-
-        function updateBallsWithMerge() {
-            if (canvas.width === 0 || canvas.height === 0 || superExplosionEffect.active) return; 
+        function updateBallsWithMerge() { /* ... (inchangé) ... */ 
+             if (canvas.width === 0 || canvas.height === 0 || superExplosionEffect.active) return; 
             
             const minRadius = MIN_BALL_RADIUS_BASE * (canvas.width / 400);
 
@@ -444,14 +501,13 @@
 
                 if (balls[i].radius > MAX_BALL_RADIUS && balls.length > 1) { 
                     ballsToRemove.add(balls[i].id);
-                    addCollisionEffect(balls[i].x, balls[i].y, [balls[i].color, ballColors[Math.floor(Math.random()*ballColors.length)]]); // Effet pour l'explosion normale aussi
+                    addCollisionEffect(balls[i].x, balls[i].y, [balls[i].color, ballColors[Math.floor(Math.random()*ballColors.length)]]); 
                     for (let k = 0; k < EXPLOSION_FRAGMENTS; k++) {
                         const fragmentRadius = minRadius + Math.random() * (minRadius/2);
                         const angle = Math.random() * Math.PI * 2;
                         const speed = (canvas.width / 150) * simParams.vitesseBilles + Math.random() * (canvas.width / 200);
                         newBallsToAdd.push(createBall(balls[i].x, balls[i].y, fragmentRadius, balls[i].color, Math.cos(angle) * speed, Math.sin(angle) * speed));
                     }
-                    // showMessage("BOOM!", 500); // Message peut être redondant avec l'effet visuel
                     continue; 
                 }
 
@@ -460,7 +516,7 @@
                     const dist = Math.sqrt((balls[i].x - balls[j].x)**2 + (balls[i].y - balls[j].y)**2);
                     if (dist < balls[i].radius + balls[j].radius) { 
                         const ball1 = balls[i]; const ball2 = balls[j];
-                        addCollisionEffect((ball1.x+ball2.x)/2, (ball1.y+ball2.y)/2, [ball1.color, ball2.color]); // AJOUT DE L'EFFET DE COLLISION
+                        addCollisionEffect((ball1.x+ball2.x)/2, (ball1.y+ball2.y)/2, [ball1.color, ball2.color]); 
                         
                         ballsToRemove.add(ball1.id); ballsToRemove.add(ball2.id);
                         const totalArea = ball1.area + ball2.area;
@@ -503,7 +559,9 @@
                 balls.forEach(drawBall);
                 updateBallsWithMerge();
             }
-            drawCollisionEffects(); // Dessiner les effets de collision par-dessus
+            drawCollisionEffects(); 
+            
+            if (isRecording && capturer) capturer.capture(canvas); // Capture frame
             animationFrameId = requestAnimationFrame(bouncingBallsWithMergeAnimation);
         }
 
@@ -512,8 +570,7 @@
         const lineColors = ['#A78BFA', '#F472B6', '#34D399', '#60A5FA', '#FBBF24'];
         let harmonyFlashTime = 0; 
         let linePhaseOffsets = [];
-
-        function initWavyLines() { 
+        function initWavyLines() { /* ... (inchangé) ... */ 
             lineTime = 0; 
             harmonyFlashTime = 0;
             linePhaseOffsets = [];
@@ -540,8 +597,7 @@
                 harmonyFlashTime--;
             }
 
-            // Glow effect for lines
-            ctx.shadowColor = hexToRgba(lineColors[2 % lineColors.length], 0.3); // Using a tealish glow
+            ctx.shadowColor = hexToRgba(lineColors[2 % lineColors.length], 0.3); 
             ctx.shadowBlur = 6;
 
             ctx.lineWidth = Math.max(1.5, canvas.width / 200); 
@@ -569,7 +625,6 @@
                     linesInHarmony++;
                 }
             }
-            // Reset shadow for other drawings
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
 
@@ -581,6 +636,7 @@
                 }
             }
             lineTime += 0.03;
+            if (isRecording && capturer) capturer.capture(canvas); // Capture frame
             animationFrameId = requestAnimationFrame(wavyLinesAnimation);
         }
 
@@ -591,9 +647,8 @@
         let globalCircleEnergy = 0;
         const MAX_CIRCLE_ENERGY = 100;
         let energyBurstTime = 0;
-
-        function initMergingCircles() {
-            circles = [];
+        function initMergingCircles() { /* ... (inchangé) ... */ 
+             circles = [];
             circleTime = 0;
             globalCircleEnergy = 0;
             energyBurstTime = 0;
@@ -612,7 +667,7 @@
                 });
             }
         }
-        function mergingCirclesAnimation() {
+        function mergingCirclesAnimation() { /* ... (inchangé) ... */ 
             if (canvas.width === 0 || canvas.height === 0) {
                 animationFrameId = requestAnimationFrame(mergingCirclesAnimation); return;
             }
@@ -651,7 +706,7 @@
 
                 ctx.beginPath();
                 ctx.arc(circle.x, circle.y, currentRadius, 0, Math.PI * 2);
-                ctx.fillStyle = circle.color; // Already rgba
+                ctx.fillStyle = circle.color; 
                 ctx.fill();
             });
             ctx.globalCompositeOperation = 'source-over';
@@ -674,6 +729,7 @@
             ctx.fillRect(10, canvas.height - energyBarHeight - 10, currentEnergyWidth, energyBarHeight);
 
             circleTime += 0.02;
+            if (isRecording && capturer) capturer.capture(canvas); // Capture frame
             animationFrameId = requestAnimationFrame(mergingCirclesAnimation);
         }
 
@@ -683,8 +739,7 @@
         let flowMode = 'expanding'; 
         const particleColors = ['#FBBF24', '#F59E0B', '#D97706', '#FDE68A', '#FEF3C7']; 
         let lastConvergenceStrength = 0; 
-
-        function initParticleFlow() {
+        function initParticleFlow() { /* ... (inchangé) ... */ 
             particles = [];
             flowTime = 0;
             flowMode = 'expanding';
@@ -709,8 +764,7 @@
             }
             lastConvergenceStrength = 0; 
         }
-
-        function particleFlowAnimation() {
+        function particleFlowAnimation() { /* ... (inchangé) ... */ 
             if (canvas.width === 0 || canvas.height === 0) {
                 animationFrameId = requestAnimationFrame(particleFlowAnimation); return;
             }
@@ -745,7 +799,6 @@
                     p.life -= 0.008 * simParams.vitesseFlux; 
                 }
                 
-                // Particle glow
                 ctx.shadowColor = hexToRgba(p.color, Math.max(0, p.life * 0.2));
                 ctx.shadowBlur = 3;
 
@@ -754,7 +807,7 @@
                 ctx.fillStyle = hexToRgba(p.color, Math.max(0, p.life * 0.8 + 0.15)); 
                 ctx.fill();
 
-                ctx.shadowColor = 'transparent'; // Reset shadow
+                ctx.shadowColor = 'transparent'; 
                 ctx.shadowBlur = 0;
             });
 
@@ -770,6 +823,7 @@
                 initParticleFlow(); 
             }
             
+            if (isRecording && capturer) capturer.capture(canvas); // Capture frame
             animationFrameId = requestAnimationFrame(particleFlowAnimation);
         }
 
@@ -779,8 +833,7 @@
         const shapeColors = ['#4F46E5', '#6366F1', '#7C3AED', '#A78BFA', '#C4B5FD']; 
         let successfulPops = 0;
         let popStreak = 0; 
-
-        function initGrowingShapes() {
+        function initGrowingShapes() { /* ... (inchangé) ... */ 
             growingShapes = [];
             shapeSpawnCounter = 0;
             successfulPops = 0;
@@ -788,8 +841,7 @@
             if (canvas.width === 0 || canvas.height === 0) return;
             addNewGrowingShape(); 
         }
-
-        function addNewGrowingShape() {
+        function addNewGrowingShape() { /* ... (inchangé) ... */ 
             if (growingShapes.length >= simParams.maxShapes || canvas.width === 0) return; 
             const sizeFactor = Math.min(canvas.width, canvas.height);
             const baseMaxSize = Math.random() * (sizeFactor / 6) + (sizeFactor / 12); 
@@ -805,8 +857,7 @@
                 alpha: 1, isFading: false, hasPopped: false
             });
         }
-
-        function growingShapesAnimation() {
+        function growingShapesAnimation() { /* ... (inchangé) ... */ 
             if (canvas.width === 0 || canvas.height === 0) {
                 animationFrameId = requestAnimationFrame(growingShapesAnimation); return;
             }
@@ -838,7 +889,7 @@
                         successfulPops++;
                         currentFramePops++;
                         shape.hasPopped = true; 
-                        ctx.fillStyle = hexToRgba('#FFFFFF', 0.5); // White flash using helper
+                        ctx.fillStyle = hexToRgba('#FFFFFF', 0.5); 
                         if(shape.isSquare) ctx.fillRect(shape.x - 5, shape.y - 5, shape.currentSize + 10, shape.currentSize + 10);
                         else {
                             ctx.beginPath(); ctx.arc(shape.x + shape.currentSize/2, shape.y + shape.currentSize/2, shape.currentSize/2 + 5, 0, Math.PI*2); ctx.fill();
@@ -847,7 +898,7 @@
                     shape.isFading = true; 
                 }
                 
-                ctx.fillStyle = hexToRgba(shape.color, shape.alpha); // Use helper
+                ctx.fillStyle = hexToRgba(shape.color, shape.alpha); 
                 ctx.beginPath();
                 if (shape.isSquare) {
                     ctx.fillRect(shape.x, shape.y, shape.currentSize, shape.currentSize);
@@ -864,10 +915,12 @@
                 popStreak = 0; 
             }
 
+            if (isRecording && capturer) capturer.capture(canvas); // Capture frame
             animationFrameId = requestAnimationFrame(growingShapesAnimation);
         }
 
-        function setupSliders() {
+        // --- Configuration des Sliders ---
+        function setupSliders() { /* ... (inchangé) ... */ 
             const sliders = [
                 { id: 'numBillesSlider', valueId: 'numBillesValue', paramKey: 'initialNumBalls', animFunc: bouncingBallsWithMergeAnimation, controlsId: 'billesControls' },
                 { id: 'vitesseBillesSlider', valueId: 'vitesseBillesValue', paramKey: 'vitesseBilles', animFunc: bouncingBallsWithMergeAnimation, controlsId: 'billesControls', step: 0.1 },
