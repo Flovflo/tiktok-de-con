@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini-Vidéos Géométriques Interactives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none; 
+        }
+        .aspect-9-16 {
+            padding-bottom: 177.77%; /* 16/9 = 1.7777 */
+        }
+        .custom-message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 10px 20px; 
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+            font-size: 0.9rem; 
+        }
+        .custom-message-box.show {
+            opacity: 1;
+            top: 30px; 
+        }
+        .anim-button {
+            @apply text-white font-semibold py-2 px-1 rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-75 text-xs sm:text-sm; 
+        }
+        .control-group {
+            @apply mb-3 p-3 bg-gray-800 rounded-md;
+        }
+        .control-group label {
+            @apply text-sm text-gray-300 mr-2;
+        }
+        .control-group input[type="range"] {
+            @apply w-full sm:w-2/3 appearance-none h-2 bg-gray-600 rounded-lg outline-none;
+        }
+         .control-group input[type="range"]::-webkit-slider-thumb {
+            @apply appearance-none w-4 h-4 bg-purple-500 rounded-full cursor-pointer;
+        }
+        .control-group input[type="range"]::-moz-range-thumb {
+            @apply w-4 h-4 bg-purple-500 rounded-full cursor-pointer border-none;
+        }
+        .control-group .value-display {
+            @apply text-xs text-purple-400 ml-2;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div id="customMessageBox" class="custom-message-box">Message ici</div>
+
+    <div class="w-full max-w-sm">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center mb-4 text-purple-400">Animations Interactives</h1>
+
+        <div class="relative w-full bg-black rounded-xl shadow-2xl overflow-hidden aspect-9-16 border-2 border-purple-500">
+            <canvas id="animationCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-1 sm:gap-2">
+            <button id="anim1Button" class="anim-button bg-purple-600 hover:bg-purple-700 focus:ring-purple-400">Billes Fusion</button>
+            <button id="anim2Button" class="anim-button bg-teal-500 hover:bg-teal-600 focus:ring-teal-400">Lignes</button>
+            <button id="anim3Button" class="anim-button bg-pink-500 hover:bg-pink-600 focus:ring-pink-400">Cercles</button>
+            <button id="anim4Button" class="anim-button bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400 mt-1 sm:mt-2">Flux</button>
+            <button id="anim5Button" class="anim-button bg-indigo-500 hover:bg-indigo-600 focus:ring-indigo-400 mt-1 sm:mt-2 col-span-2">Croissance</button>
+        </div>
+
+        <div id="controlsContainer" class="mt-3 p-2 bg-gray-700/50 rounded-lg shadow-inner w-full max-h-48 overflow-y-auto">
+            <div id="billesControls" class="control-group">
+                <h3 class="text-md font-semibold mb-1 text-purple-300">Billes Fusion</h3>
+                <div>
+                    <label for="numBillesSlider">Nombre:</label>
+                    <input type="range" id="numBillesSlider" min="3" max="30" value="10">
+                    <span id="numBillesValue" class="value-display">10</span>
+                </div>
+                <div class="mt-1">
+                    <label for="vitesseBillesSlider">Vitesse:</label>
+                    <input type="range" id="vitesseBillesSlider" min="0.5" max="3" value="1" step="0.1">
+                    <span id="vitesseBillesValue" class="value-display">1.0</span>
+                </div>
+            </div>
+            <div id="lignesControls" class="control-group hidden">
+                <h3 class="text-md font-semibold mb-1 text-teal-300">Lignes Ondulantes</h3>
+                <div>
+                    <label for="numLignesSlider">Nombre:</label>
+                    <input type="range" id="numLignesSlider" min="3" max="15" value="7">
+                    <span id="numLignesValue" class="value-display">7</span>
+                </div>
+                <div class="mt-1">
+                    <label for="vitesseLignesSlider">Vitesse:</label>
+                    <input type="range" id="vitesseLignesSlider" min="0.5" max="3" value="1" step="0.1">
+                    <span id="vitesseLignesValue" class="value-display">1.0</span>
+                </div>
+            </div>
+            <div id="cerclesControls" class="control-group hidden">
+                <h3 class="text-md font-semibold mb-1 text-pink-300">Cercles Dynamiques</h3>
+                <div>
+                    <label for="numCerclesSlider">Nombre:</label>
+                    <input type="range" id="numCerclesSlider" min="5" max="25" value="10">
+                    <span id="numCerclesValue" class="value-display">10</span>
+                </div>
+                <div class="mt-1">
+                    <label for="vitesseCerclesSlider">Pulsation:</label>
+                    <input type="range" id="vitesseCerclesSlider" min="0.5" max="3" value="1" step="0.1">
+                    <span id="vitesseCerclesValue" class="value-display">1.0</span>
+                </div>
+            </div>
+            <div id="fluxControls" class="control-group hidden">
+                <h3 class="text-md font-semibold mb-1 text-yellow-300">Flux Particules</h3>
+                <div>
+                    <label for="numFluxSlider">Particules:</label>
+                    <input type="range" id="numFluxSlider" min="50" max="300" value="100" step="10">
+                    <span id="numFluxValue" class="value-display">100</span>
+                </div>
+                <div class="mt-1">
+                    <label for="vitesseFluxSlider">Vitesse:</label>
+                    <input type="range" id="vitesseFluxSlider" min="0.5" max="3" value="1" step="0.1">
+                    <span id="vitesseFluxValue" class="value-display">1.0</span>
+                </div>
+            </div>
+            <div id="croissanceControls" class="control-group hidden">
+                <h3 class="text-md font-semibold mb-1 text-indigo-300">Formes en Croissance</h3>
+                <div>
+                    <label for="numMaxShapesSlider">Max Formes:</label>
+                    <input type="range" id="numMaxShapesSlider" min="3" max="15" value="8">
+                    <span id="numMaxShapesValue" class="value-display">8</span>
+                </div>
+                <div class="mt-1">
+                    <label for="vitesseCroissanceSlider">Croissance:</label>
+                    <input type="range" id="vitesseCroissanceSlider" min="0.5" max="3" value="1" step="0.1">
+                    <span id="vitesseCroissanceValue" class="value-display">1.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('animationCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = canvas.parentElement;
+
+        let animationFrameId;
+        let currentAnimation = null;
+        let currentControlsId = 'billesControls';
+
+        let simParams = {
+            initialNumBalls: 10,
+            vitesseBilles: 1.0,
+            numLines: 7,
+            vitesseLignes: 1.0,
+            numCircles: 10,
+            vitesseCercles: 1.0,
+            numParticles: 100,
+            vitesseFlux: 1.0,
+            maxShapes: 8,
+            vitesseCroissance: 1.0
+        };
+
+        // Helper function to convert hex color to rgba
+        function hexToRgba(hex, alpha) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length == 4) { // #RGB
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length == 7) { // #RRGGBB
+                r = parseInt(hex[1] + hex[2], 16);
+                g = parseInt(hex[3] + hex[4], 16);
+                b = parseInt(hex[5] + hex[6], 16);
+            }
+            return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+
+        const messageBox = document.getElementById('customMessageBox');
+        function showMessage(message, duration = 1500) {
+            messageBox.textContent = message;
+            messageBox.classList.add('show');
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, duration);
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            if (typeof currentAnimation === 'function' && animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                startAnimation(currentAnimation, true);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            setupSliders(); 
+            resizeCanvas();
+            switchControls('billesControls');
+            startAnimation(bouncingBallsWithMergeAnimation, true); 
+            showMessage("Bienvenue ! Contrôlez les animations.", 2000);
+        });
+        window.addEventListener('resize', resizeCanvas);
+
+        function switchControls(controlsId) {
+            document.querySelectorAll('.control-group').forEach(group => group.classList.add('hidden'));
+            const activeGroup = document.getElementById(controlsId);
+            if (activeGroup) {
+                activeGroup.classList.remove('hidden');
+            }
+            currentControlsId = controlsId;
+        }
+        
+        function startAnimation(animationFunction, doInit = true) {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            if (currentAnimation !== animationFunction) {
+                 if (currentAnimation === bouncingBallsWithMergeAnimation) {
+                    superExplosionEffect.active = false; 
+                    collisionEffects = []; // Effacer les effets de collision en cours
+                 }
+            }
+
+            currentAnimation = animationFunction;
+            
+            if (doInit) {
+                if (animationFunction === bouncingBallsWithMergeAnimation) initBouncingBallsWithMerge();
+                else if (animationFunction === wavyLinesAnimation) initWavyLines();
+                else if (animationFunction === mergingCirclesAnimation) initMergingCircles();
+                else if (animationFunction === particleFlowAnimation) initParticleFlow();
+                else if (animationFunction === growingShapesAnimation) initGrowingShapes();
+            }
+            
+            if (canvas.width === 0 || canvas.height === 0) {
+                resizeCanvas(); 
+                if (doInit && currentAnimation) { 
+                     if (currentAnimation === bouncingBallsWithMergeAnimation) initBouncingBallsWithMerge();
+                     else if (currentAnimation === wavyLinesAnimation) initWavyLines();
+                     else if (currentAnimation === mergingCirclesAnimation) initMergingCircles();
+                     else if (currentAnimation === particleFlowAnimation) initParticleFlow();
+                     else if (currentAnimation === growingShapesAnimation) initGrowingShapes();
+                }
+            }
+            if(canvas.width > 0 && canvas.height > 0) { 
+                animationFunction(); 
+            }
+        }
+
+        // --- Animation 1: Billes Rebondissantes avec Fusion et Explosion ---
+        let balls = [];
+        const ballColors = ['#8B5CF6', '#EC4899', '#10B981', '#3B82F6', '#F59E0B', '#6D28D9', '#BE185D', '#F9A8D4', '#A7F3D0'];
+        const MIN_BALL_RADIUS_BASE = 5; 
+        let MAX_BALL_RADIUS; 
+        const EXPLOSION_FRAGMENTS = 3; 
+        const SUPER_EXPLOSION_FRAGMENTS = 70; // Augmenté
+
+        let superExplosionEffect = {
+            active: false, x: 0, y: 0, duration: 70, // Durée augmentée
+            currentTime: 0, particles: []
+        };
+        let collisionEffects = []; // Pour les petits éclats lors des fusions
+        const COLLISION_EFFECT_DURATION = 20;
+        const COLLISION_EFFECT_PARTICLES = 10;
+
+
+        function addCollisionEffect(x, y, colors) {
+            let effectParticles = [];
+            for (let i = 0; i < COLLISION_EFFECT_PARTICLES; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 1.5 + 0.5; // Vitesse modérée
+                effectParticles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 1.5 + 0.5, 
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1
+                });
+            }
+            collisionEffects.push({ particles: effectParticles, currentTime: 0, duration: COLLISION_EFFECT_DURATION });
+        }
+
+        function drawCollisionEffects() {
+            for (let i = collisionEffects.length - 1; i >= 0; i--) {
+                const effect = collisionEffects[i];
+                effect.currentTime++;
+                const progress = effect.currentTime / effect.duration;
+
+                effect.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha = 1 - progress;
+
+                    if (p.alpha > 0) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = hexToRgba(p.color, p.alpha * 0.8); // Utilisation de hexToRgba
+                        ctx.fill();
+                    }
+                });
+
+                if (effect.currentTime >= effect.duration) {
+                    collisionEffects.splice(i, 1); 
+                }
+            }
+        }
+
+
+        function calculateRadiusFromArea(area) { return Math.sqrt(area / Math.PI); }
+        function calculateAreaFromRadius(radius) { return Math.PI * radius * radius; }
+        
+        function createBall(x, y, radius, color, dx, dy) {
+            const baseSpeedFactor = canvas.width > 0 ? canvas.width / 200 : 1; 
+            return {
+                id: Date.now() * Math.random(), 
+                x: x, y: y, radius: radius, area: calculateAreaFromRadius(radius),
+                color: color || ballColors[Math.floor(Math.random() * ballColors.length)],
+                dx: dx !== undefined ? dx : (Math.random() - 0.5) * baseSpeedFactor * simParams.vitesseBilles, 
+                dy: dy !== undefined ? dy : (Math.random() - 0.5) * baseSpeedFactor * simParams.vitesseBilles 
+            };
+        }
+
+        function initBouncingBallsWithMerge() {
+            balls = [];
+            superExplosionEffect.active = false; 
+            superExplosionEffect.particles = [];
+            collisionEffects = []; // Réinitialiser les effets de collision
+            if (canvas.width === 0 || canvas.height === 0) return; 
+            MAX_BALL_RADIUS = Math.min(canvas.width, canvas.height) / 4; 
+            const minRadius = MIN_BALL_RADIUS_BASE * (canvas.width / 400);
+
+            for (let i = 0; i < simParams.initialNumBalls; i++) { 
+                const radius = Math.random() * (canvas.width / 35) + minRadius;
+                balls.push(createBall(
+                    Math.random() * (canvas.width - 2 * radius) + radius,
+                    Math.random() * (canvas.height - 2 * radius) + radius,
+                    radius
+                ));
+            }
+        }
+
+        function triggerSuperExplosion(ball) {
+            superExplosionEffect.active = true;
+            superExplosionEffect.x = ball.x;
+            superExplosionEffect.y = ball.y;
+            superExplosionEffect.currentTime = 0;
+            superExplosionEffect.particles = [];
+            const superExplosionSpeedBase = (canvas.width / 100) * simParams.vitesseBilles;
+
+            for (let i = 0; i < SUPER_EXPLOSION_FRAGMENTS; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = superExplosionSpeedBase * (0.6 + Math.random()); // Vitesse plus variée
+                superExplosionEffect.particles.push({
+                    x: ball.x, y: ball.y,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3.5 + 1, // Particules légèrement plus grosses
+                    color: ballColors[Math.floor(Math.random() * ballColors.length)],
+                    alpha: 1,
+                    drag: 0.985 + Math.random() * 0.01 // Légère variation de la traînée
+                });
+            }
+            balls = []; 
+            showMessage("SUPER EXPLOSION !!!", 2000);
+        }
+
+        function drawSuperExplosion() {
+            if (!superExplosionEffect.active) return;
+
+            superExplosionEffect.currentTime++;
+            const progress = superExplosionEffect.currentTime / superExplosionEffect.duration;
+
+            superExplosionEffect.particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= p.drag; // Appliquer la traînée
+                p.vy *= p.drag;
+                p.alpha = 1 - progress * progress; // Fondu plus lent au début
+
+                if (p.alpha > 0) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = hexToRgba(p.color, p.alpha); // Utilisation de hexToRgba
+                    ctx.fill();
+                }
+            });
+            
+            const shockwaveRadius = progress * Math.max(canvas.width, canvas.height) * 0.75; // Onde de choc un peu plus grande
+            const shockwaveAlpha = 0.6 * (1 - progress); // Un peu plus visible
+            if (shockwaveAlpha > 0) {
+                ctx.beginPath();
+                ctx.arc(superExplosionEffect.x, superExplosionEffect.y, shockwaveRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 220, ${shockwaveAlpha})`; // Couleur jaune pâle
+                ctx.lineWidth = (6 * (1-progress) + 1); // Plus épaisse au début
+                ctx.stroke();
+            }
+
+            if (superExplosionEffect.currentTime >= superExplosionEffect.duration) {
+                superExplosionEffect.active = false;
+                initBouncingBallsWithMerge(); 
+            }
+        }
+
+        function drawBall(ball) { 
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color; // La couleur est déjà en hex
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function updateBallsWithMerge() {
+            if (canvas.width === 0 || canvas.height === 0 || superExplosionEffect.active) return; 
+            
+            const minRadius = MIN_BALL_RADIUS_BASE * (canvas.width / 400);
+
+            balls.forEach(ball => {
+                ball.x += ball.dx; ball.y += ball.dy;
+                if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+                    ball.dx *= -1;
+                    if (ball.x + ball.radius > canvas.width) ball.x = canvas.width - ball.radius;
+                    if (ball.x - ball.radius < 0) ball.x = ball.radius;
+                }
+                if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+                    ball.dy *= -1;
+                     if (ball.y + ball.radius > canvas.height) ball.y = canvas.height - ball.radius;
+                    if (ball.y - ball.radius < 0) ball.y = ball.radius;
+                }
+            });
+
+            let newBallsToAdd = [];
+            let ballsToRemove = new Set();
+
+            for (let i = 0; i < balls.length; i++) {
+                if (ballsToRemove.has(balls[i].id)) continue;
+
+                if (balls[i].radius > MAX_BALL_RADIUS && balls.length > 1) { 
+                    ballsToRemove.add(balls[i].id);
+                    addCollisionEffect(balls[i].x, balls[i].y, [balls[i].color, ballColors[Math.floor(Math.random()*ballColors.length)]]); // Effet pour l'explosion normale aussi
+                    for (let k = 0; k < EXPLOSION_FRAGMENTS; k++) {
+                        const fragmentRadius = minRadius + Math.random() * (minRadius/2);
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = (canvas.width / 150) * simParams.vitesseBilles + Math.random() * (canvas.width / 200);
+                        newBallsToAdd.push(createBall(balls[i].x, balls[i].y, fragmentRadius, balls[i].color, Math.cos(angle) * speed, Math.sin(angle) * speed));
+                    }
+                    // showMessage("BOOM!", 500); // Message peut être redondant avec l'effet visuel
+                    continue; 
+                }
+
+                for (let j = i + 1; j < balls.length; j++) { 
+                    if (ballsToRemove.has(balls[j].id)) continue;
+                    const dist = Math.sqrt((balls[i].x - balls[j].x)**2 + (balls[i].y - balls[j].y)**2);
+                    if (dist < balls[i].radius + balls[j].radius) { 
+                        const ball1 = balls[i]; const ball2 = balls[j];
+                        addCollisionEffect((ball1.x+ball2.x)/2, (ball1.y+ball2.y)/2, [ball1.color, ball2.color]); // AJOUT DE L'EFFET DE COLLISION
+                        
+                        ballsToRemove.add(ball1.id); ballsToRemove.add(ball2.id);
+                        const totalArea = ball1.area + ball2.area;
+                        const newRadius = calculateRadiusFromArea(totalArea);
+                        const newX = (ball1.x * ball1.area + ball2.x * ball2.area) / totalArea;
+                        const newY = (ball1.y * ball1.area + ball2.y * ball2.area) / totalArea;
+                        const newDx = (ball1.dx * ball1.area + ball2.dx * ball2.area) / totalArea;
+                        const newDy = (ball1.dy * ball1.area + ball2.dy * ball2.area) / totalArea;
+                        const newColor = ball1.area > ball2.area ? ball1.color : ball2.color;
+                        newBallsToAdd.push(createBall(newX, newY, newRadius, newColor, newDx, newDy));
+                        break; 
+                    }
+                }
+            }
+            
+            const previousBallCount = balls.length;
+            balls = balls.filter(ball => !ballsToRemove.has(ball.id));
+            balls.push(...newBallsToAdd);
+
+            if (balls.length === 1 && previousBallCount > 1 && !superExplosionEffect.active) {
+                if (balls[0].radius < MAX_BALL_RADIUS * 1.5) { 
+                    triggerSuperExplosion(balls[0]);
+                    return; 
+                }
+            }
+
+            if (balls.length === 0 && canvas.width > 0 && !superExplosionEffect.active) { 
+                 initBouncingBallsWithMerge(); 
+            }
+        }
+        function bouncingBallsWithMergeAnimation() {
+            if (canvas.width === 0 || canvas.height === 0) { 
+                animationFrameId = requestAnimationFrame(bouncingBallsWithMergeAnimation); return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (superExplosionEffect.active) {
+                drawSuperExplosion();
+            } else {
+                balls.forEach(drawBall);
+                updateBallsWithMerge();
+            }
+            drawCollisionEffects(); // Dessiner les effets de collision par-dessus
+            animationFrameId = requestAnimationFrame(bouncingBallsWithMergeAnimation);
+        }
+
+        // --- Animation 2: Lignes Ondulantes ---
+        let lineTime = 0;
+        const lineColors = ['#A78BFA', '#F472B6', '#34D399', '#60A5FA', '#FBBF24'];
+        let harmonyFlashTime = 0; 
+        let linePhaseOffsets = [];
+
+        function initWavyLines() { 
+            lineTime = 0; 
+            harmonyFlashTime = 0;
+            linePhaseOffsets = [];
+            if (canvas.width === 0 || canvas.height === 0) return;
+            for(let i=0; i < simParams.numLines; i++) { 
+                linePhaseOffsets.push(Math.random() * Math.PI); 
+            }
+        }
+        function wavyLinesAnimation() {
+            if (canvas.width === 0 || canvas.height === 0) {
+                animationFrameId = requestAnimationFrame(wavyLinesAnimation); return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (harmonyFlashTime > 0) {
+                const hfProgress = 1 - (harmonyFlashTime / 30); 
+                const hfRadius = hfProgress * canvas.width * 0.8; 
+                const hfGradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, hfRadius);
+                hfGradient.addColorStop(0, `rgba(224, 242, 254, ${0.3 * (1-hfProgress)})`); 
+                hfGradient.addColorStop(0.6, `rgba(125, 211, 252, ${0.15 * (1-hfProgress)})`); 
+                hfGradient.addColorStop(1, `rgba(56, 189, 248, 0)`); 
+                ctx.fillStyle = hfGradient;
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+                harmonyFlashTime--;
+            }
+
+            // Glow effect for lines
+            ctx.shadowColor = hexToRgba(lineColors[2 % lineColors.length], 0.3); // Using a tealish glow
+            ctx.shadowBlur = 6;
+
+            ctx.lineWidth = Math.max(1.5, canvas.width / 200); 
+            const midY = canvas.height / 2;
+            let linesInHarmony = 0;
+            const harmonyThreshold = canvas.height / 15; 
+
+            for (let i = 0; i < simParams.numLines; i++) { 
+                ctx.beginPath();
+                ctx.strokeStyle = lineColors[i % lineColors.length];
+                const amplitude = canvas.height / (simParams.numLines * 1.2 + 3); 
+                const frequency = 0.015 + (i * 0.0005); 
+                const yOffset = (canvas.height / (simParams.numLines + 1)) * (i + 1);
+
+                let yAtMidCanvas = 0;
+
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = yOffset + Math.sin(x * frequency + lineTime * simParams.vitesseLignes + linePhaseOffsets[i]) * amplitude;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    if (x >= canvas.width / 2 -1 && x <= canvas.width/2 + 1) yAtMidCanvas = y; 
+                }
+                ctx.stroke();
+                if (Math.abs(yAtMidCanvas - midY) < harmonyThreshold) {
+                    linesInHarmony++;
+                }
+            }
+            // Reset shadow for other drawings
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
+            if (linesInHarmony >= Math.max(2, simParams.numLines -1) && harmonyFlashTime <=0) { 
+                showMessage("Harmonie !", 800);
+                harmonyFlashTime = 30; 
+                 for(let i=0; i < simParams.numLines; i++) { 
+                    linePhaseOffsets[i] += (Math.random() -0.5) * 0.5;
+                }
+            }
+            lineTime += 0.03;
+            animationFrameId = requestAnimationFrame(wavyLinesAnimation);
+        }
+
+        // --- Animation 3: Cercles Dynamiques ---
+        let circles = [];
+        let circleTime = 0;
+        const circleBaseColors = [ { r: 236, g: 72, b: 153 }, { r: 139, g: 92, b: 246 }, { r: 16, g: 185, b: 129 }, {r: 245, g: 158, b: 11}];
+        let globalCircleEnergy = 0;
+        const MAX_CIRCLE_ENERGY = 100;
+        let energyBurstTime = 0;
+
+        function initMergingCircles() {
+            circles = [];
+            circleTime = 0;
+            globalCircleEnergy = 0;
+            energyBurstTime = 0;
+            if (canvas.width === 0 || canvas.height === 0) return;
+            for (let i = 0; i < simParams.numCircles; i++) { 
+                const baseColor = circleBaseColors[i % circleBaseColors.length];
+                const baseRadius = Math.random() * (canvas.width/12) + (canvas.width/25);
+                circles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    baseRadius: baseRadius,
+                    maxPulseRadius: baseRadius * 1.2, 
+                    color: `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.6)`, 
+                    angleOffset: Math.random() * Math.PI * 2,
+                    pulsedThisCycle: false
+                });
+            }
+        }
+        function mergingCirclesAnimation() {
+            if (canvas.width === 0 || canvas.height === 0) {
+                animationFrameId = requestAnimationFrame(mergingCirclesAnimation); return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (energyBurstTime > 0) {
+                const burstProgress = 1 - (energyBurstTime / 60); 
+                const gradRadius = burstProgress * canvas.width;
+                const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, gradRadius);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${0.5 * (1-burstProgress)})`);
+                gradient.addColorStop(0.8, `rgba(200, 150, 255, ${0.2 * (1-burstProgress)})`);
+                gradient.addColorStop(1, `rgba(100, 50, 200, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+                energyBurstTime--;
+            }
+
+            ctx.globalCompositeOperation = 'lighter';
+            circles.forEach(circle => {
+                const pulseFactor = Math.sin(circleTime * simParams.vitesseCercles + circle.angleOffset); 
+                const currentRadius = circle.baseRadius * (1 + 0.2 * pulseFactor);
+                
+                if (pulseFactor > 0.95 && !circle.pulsedThisCycle && globalCircleEnergy < MAX_CIRCLE_ENERGY) { 
+                    globalCircleEnergy += 50 / simParams.numCircles; 
+                    circle.pulsedThisCycle = true;
+                } else if (pulseFactor < 0) {
+                    circle.pulsedThisCycle = false; 
+                }
+
+                const moveFactor = 0.3 * (canvas.width / 800) * simParams.vitesseCercles; 
+                circle.x += Math.cos(circleTime + circle.angleOffset * 1.5) * moveFactor; 
+                circle.y += Math.sin(circleTime + circle.angleOffset * 1.5) * moveFactor;
+
+                if (circle.x - currentRadius < 0 && circle.x < canvas.width/2) circle.x = currentRadius + Math.random()*5; else if (circle.x + currentRadius > canvas.width && circle.x > canvas.width/2) circle.x = canvas.width - currentRadius - Math.random()*5;
+                if (circle.y - currentRadius < 0 && circle.y < canvas.height/2) circle.y = currentRadius + Math.random()*5; else if (circle.y + currentRadius > canvas.height && circle.y > canvas.height/2) circle.y = canvas.height - currentRadius - Math.random()*5;
+
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, currentRadius, 0, Math.PI * 2);
+                ctx.fillStyle = circle.color; // Already rgba
+                ctx.fill();
+            });
+            ctx.globalCompositeOperation = 'source-over';
+
+            if (globalCircleEnergy >= MAX_CIRCLE_ENERGY && energyBurstTime <= 0) {
+                showMessage("Énergie Maximale !", 1000);
+                energyBurstTime = 60; 
+                globalCircleEnergy = 0;
+                 circles.forEach(c => {
+                    const baseColor = circleBaseColors[Math.floor(Math.random() * circleBaseColors.length)];
+                    c.color = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0.6)`;
+                 });
+            }
+
+            const energyBarHeight = 5;
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(10, canvas.height - energyBarHeight - 10, canvas.width - 20, energyBarHeight);
+            ctx.fillStyle = `rgba(${circleBaseColors[1].r}, ${circleBaseColors[1].g}, ${circleBaseColors[1].b}, 0.8)`; 
+            const currentEnergyWidth = (globalCircleEnergy / MAX_CIRCLE_ENERGY) * (canvas.width - 20);
+            ctx.fillRect(10, canvas.height - energyBarHeight - 10, currentEnergyWidth, energyBarHeight);
+
+            circleTime += 0.02;
+            animationFrameId = requestAnimationFrame(mergingCirclesAnimation);
+        }
+
+        // --- Animation 4: Flux de Particules ---
+        let particles = [];
+        let flowTime = 0;
+        let flowMode = 'expanding'; 
+        const particleColors = ['#FBBF24', '#F59E0B', '#D97706', '#FDE68A', '#FEF3C7']; 
+        let lastConvergenceStrength = 0; 
+
+        function initParticleFlow() {
+            particles = [];
+            flowTime = 0;
+            flowMode = 'expanding';
+            if (canvas.width === 0 || canvas.height === 0) return;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            const expansionStrengthFactor = 1 + (lastConvergenceStrength / (simParams.numParticles * 0.5)); 
+
+            for (let i = 0; i < simParams.numParticles; i++) { 
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (Math.random() * 1.5 + 0.5) * simParams.vitesseFlux * expansionStrengthFactor; 
+                particles.push({
+                    x: centerX, y: centerY,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    baseSpeed: speed / expansionStrengthFactor, 
+                    radius: Math.random() * 2 + 1, 
+                    color: particleColors[Math.floor(Math.random() * particleColors.length)],
+                    life: 1, 
+                    maxDist: (Math.random() * Math.min(canvas.width, canvas.height) * 0.35 + Math.min(canvas.width, canvas.height) * 0.1) * Math.min(1.5, expansionStrengthFactor) 
+                });
+            }
+            lastConvergenceStrength = 0; 
+        }
+
+        function particleFlowAnimation() {
+            if (canvas.width === 0 || canvas.height === 0) {
+                animationFrameId = requestAnimationFrame(particleFlowAnimation); return;
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.1)'; 
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            let allProcessed = true; 
+            let currentConvergenceCount = 0;
+            const CONVERGENCE_THRESHOLD = canvas.width / 50; 
+
+            particles.forEach(p => {
+                if (flowMode === 'expanding') {
+                    p.x += p.vx; p.y += p.vy;
+                    const distFromCenter = Math.sqrt((p.x - centerX)**2 + (p.y - centerY)**2);
+                    if (distFromCenter > p.maxDist) {
+                        p.vx *= 0.9; p.vy *= 0.9; 
+                        if (Math.abs(p.vx) < 0.01 && Math.abs(p.vy) < 0.01) {  } 
+                        else { allProcessed = false; }
+                    } else { allProcessed = false; }
+                } else { 
+                    const dx = centerX - p.x; const dy = centerY - p.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 1) {
+                        const speedFactor = Math.min(1, 5 / dist) * 0.1 * simParams.vitesseFlux; 
+                        p.x += dx * speedFactor; 
+                        p.y += dy * speedFactor;
+                        allProcessed = false;
+                        if (dist < CONVERGENCE_THRESHOLD) currentConvergenceCount++;
+                    }
+                    p.life -= 0.008 * simParams.vitesseFlux; 
+                }
+                
+                // Particle glow
+                ctx.shadowColor = hexToRgba(p.color, Math.max(0, p.life * 0.2));
+                ctx.shadowBlur = 3;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = hexToRgba(p.color, Math.max(0, p.life * 0.8 + 0.15)); 
+                ctx.fill();
+
+                ctx.shadowColor = 'transparent'; // Reset shadow
+                ctx.shadowBlur = 0;
+            });
+
+            flowTime += 1;
+
+            if (flowMode === 'expanding' && allProcessed && flowTime > 80 / simParams.vitesseFlux) { 
+                flowMode = 'converging';
+                showMessage("Convergence...", 800);
+                particles.forEach(p => { p.life = 1; });
+            } else if (flowMode === 'converging' && allProcessed) {
+                lastConvergenceStrength = currentConvergenceCount;
+                showMessage(`Expansion! (Force: ${Math.round(lastConvergenceStrength / simParams.numParticles * 100)}%)`, 1000); 
+                initParticleFlow(); 
+            }
+            
+            animationFrameId = requestAnimationFrame(particleFlowAnimation);
+        }
+
+        // --- Animation 5: Formes en Croissance ---
+        let growingShapes = [];
+        let shapeSpawnCounter = 0;
+        const shapeColors = ['#4F46E5', '#6366F1', '#7C3AED', '#A78BFA', '#C4B5FD']; 
+        let successfulPops = 0;
+        let popStreak = 0; 
+
+        function initGrowingShapes() {
+            growingShapes = [];
+            shapeSpawnCounter = 0;
+            successfulPops = 0;
+            popStreak = 0;
+            if (canvas.width === 0 || canvas.height === 0) return;
+            addNewGrowingShape(); 
+        }
+
+        function addNewGrowingShape() {
+            if (growingShapes.length >= simParams.maxShapes || canvas.width === 0) return; 
+            const sizeFactor = Math.min(canvas.width, canvas.height);
+            const baseMaxSize = Math.random() * (sizeFactor / 6) + (sizeFactor / 12); 
+            const maxSize = baseMaxSize * (1 + popStreak * 0.05); 
+
+            growingShapes.push({
+                x: Math.random() * (canvas.width - maxSize),
+                y: Math.random() * (canvas.height - maxSize),
+                currentSize: 0, maxSize: maxSize,
+                growthRate: (Math.random() * 0.4 + 0.2) * simParams.vitesseCroissance, 
+                color: shapeColors[Math.floor(Math.random() * shapeColors.length)],
+                isSquare: Math.random() > 0.5, 
+                alpha: 1, isFading: false, hasPopped: false
+            });
+        }
+
+        function growingShapesAnimation() {
+            if (canvas.width === 0 || canvas.height === 0) {
+                animationFrameId = requestAnimationFrame(growingShapesAnimation); return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let spawnInterval = 70 / simParams.vitesseCroissance; 
+            if (growingShapes.length < simParams.maxShapes / 2) spawnInterval *= 0.7; 
+            if (growingShapes.length > simParams.maxShapes * 0.8 && popStreak < 2) spawnInterval *= 1.5; 
+
+            shapeSpawnCounter++;
+            if (shapeSpawnCounter > spawnInterval && growingShapes.length < simParams.maxShapes) { 
+                addNewGrowingShape();
+                shapeSpawnCounter = 0;
+            }
+
+            let currentFramePops = 0;
+            for (let i = growingShapes.length - 1; i >= 0; i--) {
+                const shape = growingShapes[i];
+                if (shape.isFading) {
+                    shape.alpha -= 0.03 * simParams.vitesseCroissance; 
+                    if (shape.alpha <= 0) {
+                        growingShapes.splice(i, 1); 
+                        continue;
+                    }
+                } else if (shape.currentSize < shape.maxSize) {
+                    shape.currentSize += shape.growthRate * (Math.min(canvas.width, canvas.height)/300); 
+                } else {
+                    if (!shape.hasPopped) {
+                        successfulPops++;
+                        currentFramePops++;
+                        shape.hasPopped = true; 
+                        ctx.fillStyle = hexToRgba('#FFFFFF', 0.5); // White flash using helper
+                        if(shape.isSquare) ctx.fillRect(shape.x - 5, shape.y - 5, shape.currentSize + 10, shape.currentSize + 10);
+                        else {
+                            ctx.beginPath(); ctx.arc(shape.x + shape.currentSize/2, shape.y + shape.currentSize/2, shape.currentSize/2 + 5, 0, Math.PI*2); ctx.fill();
+                        }
+                    }
+                    shape.isFading = true; 
+                }
+                
+                ctx.fillStyle = hexToRgba(shape.color, shape.alpha); // Use helper
+                ctx.beginPath();
+                if (shape.isSquare) {
+                    ctx.fillRect(shape.x, shape.y, shape.currentSize, shape.currentSize);
+                } else {
+                    ctx.arc(shape.x + shape.currentSize / 2, shape.y + shape.currentSize / 2, shape.currentSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            if (currentFramePops > 0) {
+                popStreak += currentFramePops;
+                if (popStreak > 2) showMessage(`Combo x${popStreak}!`, 600);
+            } else if (growingShapes.length > 0) { 
+                popStreak = 0; 
+            }
+
+            animationFrameId = requestAnimationFrame(growingShapesAnimation);
+        }
+
+        function setupSliders() {
+            const sliders = [
+                { id: 'numBillesSlider', valueId: 'numBillesValue', paramKey: 'initialNumBalls', animFunc: bouncingBallsWithMergeAnimation, controlsId: 'billesControls' },
+                { id: 'vitesseBillesSlider', valueId: 'vitesseBillesValue', paramKey: 'vitesseBilles', animFunc: bouncingBallsWithMergeAnimation, controlsId: 'billesControls', step: 0.1 },
+                { id: 'numLignesSlider', valueId: 'numLignesValue', paramKey: 'numLines', animFunc: wavyLinesAnimation, controlsId: 'lignesControls' },
+                { id: 'vitesseLignesSlider', valueId: 'vitesseLignesValue', paramKey: 'vitesseLignes', animFunc: wavyLinesAnimation, controlsId: 'lignesControls', step: 0.1 },
+                { id: 'numCerclesSlider', valueId: 'numCerclesValue', paramKey: 'numCircles', animFunc: mergingCirclesAnimation, controlsId: 'cerclesControls' },
+                { id: 'vitesseCerclesSlider', valueId: 'vitesseCerclesValue', paramKey: 'vitesseCercles', animFunc: mergingCirclesAnimation, controlsId: 'cerclesControls', step: 0.1 },
+                { id: 'numFluxSlider', valueId: 'numFluxValue', paramKey: 'numParticles', animFunc: particleFlowAnimation, controlsId: 'fluxControls' },
+                { id: 'vitesseFluxSlider', valueId: 'vitesseFluxValue', paramKey: 'vitesseFlux', animFunc: particleFlowAnimation, controlsId: 'fluxControls', step: 0.1 },
+                { id: 'numMaxShapesSlider', valueId: 'numMaxShapesValue', paramKey: 'maxShapes', animFunc: growingShapesAnimation, controlsId: 'croissanceControls' },
+                { id: 'vitesseCroissanceSlider', valueId: 'vitesseCroissanceValue', paramKey: 'vitesseCroissance', animFunc: growingShapesAnimation, controlsId: 'croissanceControls', step: 0.1 }
+            ];
+
+            sliders.forEach(s => {
+                const sliderElement = document.getElementById(s.id);
+                const valueElement = document.getElementById(s.valueId);
+                if (sliderElement) {
+                    simParams[s.paramKey] = parseFloat(sliderElement.value);
+                    valueElement.textContent = simParams[s.paramKey].toFixed(s.step ? 1 : 0);
+
+                    sliderElement.addEventListener('input', (event) => {
+                        const newValue = parseFloat(event.target.value);
+                        simParams[s.paramKey] = newValue; 
+                        valueElement.textContent = newValue.toFixed(s.step ? 1 : 0);
+                        if (currentAnimation === s.animFunc) { 
+                            startAnimation(s.animFunc, true); 
+                        }
+                    });
+                }
+            });
+        }
+        
+        const animButtons = [
+            { id: 'anim1Button', func: bouncingBallsWithMergeAnimation, controls: 'billesControls', name: "Billes Fusion" },
+            { id: 'anim2Button', func: wavyLinesAnimation, controls: 'lignesControls', name: "Lignes Ondulantes" },
+            { id: 'anim3Button', func: mergingCirclesAnimation, controls: 'cerclesControls', name: "Cercles Dynamiques" },
+            { id: 'anim4Button', func: particleFlowAnimation, controls: 'fluxControls', name: "Flux de Particules" },
+            { id: 'anim5Button', func: growingShapesAnimation, controls: 'croissanceControls', name: "Formes en Croissance" }
+        ];
+
+        animButtons.forEach(btnConfig => {
+            document.getElementById(btnConfig.id).addEventListener('click', () => {
+                switchControls(btnConfig.controls);
+                startAnimation(btnConfig.func, true); 
+                showMessage(`${btnConfig.name} activée !`, 1200);
+            });
+        });
+
+    </script>
+</body>
+</html>
